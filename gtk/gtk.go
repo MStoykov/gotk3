@@ -7936,6 +7936,19 @@ func (v *Widget) SetParentWindow(parentWindow *gdk.Window) {
 		(*C.GdkWindow)(unsafe.Pointer(parentWindow.Native())))
 }
 
+// GetWindow is a wrapper around gtk_widget_get_window().
+func (v *Widget) GetWindow() (*gdk.Window, error) {
+	c := C.gtk_widget_get_window(v.native())
+	if v == nil {
+		return nil, nilPtrErr
+	}
+	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	w := &gdk.Window{obj}
+	w.Ref()
+	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	return w, nil
+}
+
 // GetParentWindow is a wrapper around gtk_widget_get_parent_window().
 func (v *Widget) GetParentWindow() (*gdk.Window, error) {
 	c := C.gtk_widget_get_parent_window(v.native())
