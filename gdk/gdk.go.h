@@ -60,3 +60,8 @@ toGdkWindow(void *p)
 {
 	return (GDK_WINDOW(p));
 }
+static GdkEventType
+getGdkEventType(GdkEvent *event)
+{
+	return event->type;
+}
