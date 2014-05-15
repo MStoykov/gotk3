@@ -121,3 +121,13 @@ _g_closure_add_finalize_notifier(GClosure *closure)
 {
 	g_closure_add_finalize_notifier(closure, NULL, removeClosure);
 }
+
+/*
+ * GParamSpec helper function
+ */
+
+static GParamSpec *
+_g_get_nth_param_spec(GParamSpec **specs, int index)
+{
+	return specs[index];
+}

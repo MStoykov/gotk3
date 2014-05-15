@@ -426,6 +426,75 @@ type IObject interface {
 	toObject() *Object
 }
 
+// ObjectClass is representation of GLib's GObjectClass
+type ObjectClass struct {
+	GObjectClass *C.GObjectClass
+}
+
+// native returns a pointer to the underlying GObjectClass.
+func (v *ObjectClass) native() *C.GObjectClass {
+	return v.GObjectClass
+}
+
+// Native returns a pointer to the underlying GObjectClass.
+func (v *ObjectClass) Native() uintptr {
+	return uintptr(unsafe.Pointer(v.native()))
+}
+
+// FindProperty is a wrapper around g_object_class_find_property
+func (v *ObjectClass) FindProperty(name string) *ParamSpec {
+	cstr := C.CString(name)
+	defer C.free(unsafe.Pointer(cstr))
+
+	c := C.g_object_class_find_property(v.native(), (*C.gchar)(cstr))
+	if c == nil {
+		return nil
+	}
+	return &ParamSpec{c}
+}
+
+// ListProperties is a wrapper around g_object_class_list_properties
+func (v *ObjectClass) ListProperties() []*ParamSpec {
+	var nParams uint
+	list := C.g_object_class_list_properties(v.native(), (*C.guint)(unsafe.Pointer(&nParams)))
+	var length int = int(nParams)
+	paramSpecs := make ([]*ParamSpec,0,  length)
+	for i := 0; i < length; i++ {
+		fmt.Println(i)
+		c := C._g_get_nth_param_spec((**C.GParamSpec)(list),C.int(i))
+		c = C.g_param_spec_ref_sink(c)
+		fmt.Println(c)
+		paramSpecs = append(paramSpecs, &ParamSpec{c})
+	}
+	return paramSpecs
+
+}
+
+// ParamSpec is representation of GLib's GParamSpec
+type ParamSpec struct {
+	GParamSpec *C.GParamSpec
+}
+
+// native returns a pointer to the underlying GParamSpec.
+func (v *ParamSpec) native() *C.GParamSpec {
+	return v.GParamSpec
+}
+
+// Native returns a pointer to the underlying GParamSpec.
+func (v *ParamSpec) Native() uintptr {
+	return uintptr(unsafe.Pointer(v.native()))
+}
+
+// GetType returns the Type for this Parameter
+func (v *ParamSpec) GetType() Type {
+	return Type(v.native().value_type)
+}
+
+// GetName returns the Name for this Parameter
+func (v *ParamSpec) GetName() string {
+	return C.GoString((*C.char)(v.native().name))
+}
+
 // Object is a representation of GLib's GObject.
 type Object struct {
 	GObject *C.GObject
@@ -470,6 +539,11 @@ func (v *Object) IsA(typ Type) bool {
 func (v *Object) TypeFromInstance() Type {
 	c := C._g_type_from_instance(C.gpointer(unsafe.Pointer(v.native())))
 	return Type(c)
+}
+
+func (v *Object) GetClass() *ObjectClass {
+	c := C._g_object_get_class(v.native())
+	return &ObjectClass{c}
 }
 
 // ToGObject type converts an unsafe.Pointer as a native C GObject.
@@ -534,30 +608,17 @@ func (v *Object) Set(name string, value interface{}) error {
 	return nil
 }
 
-// GetPropertyType returns the Type of a property of the underlying GObject.
-// If the property is missing it will return TYPE_INVALID and an error.
-func (v *Object) GetPropertyType(name string) (Type, error) {
-	cstr := C.CString(name)
-	defer C.free(unsafe.Pointer(cstr))
-
-	paramSpec := C.g_object_class_find_property(C._g_object_get_class(v.native()), (*C.gchar)(cstr))
-	if paramSpec == nil {
-		return TYPE_INVALID, errors.New("couldn't find Property")
-	}
-	return Type(paramSpec.value_type), nil
-}
-
 // GetProperty is a wrapper around g_object_get_property().
 func (v *Object) GetProperty(name string) (interface{}, error) {
 	cstr := C.CString(name)
 	defer C.free(unsafe.Pointer(cstr))
 
-	t, err := v.GetPropertyType(name)
-	if err != nil {
-		return nil, err
+	paramSpec := v.GetClass().FindProperty(name)
+	if paramSpec == nil {
+		return nil, errors.New("no such property")
 	}
 
-	p, err := ValueInit(t)
+	p, err := ValueInit(paramSpec.GetType())
 	if err != nil {
 		return nil, errors.New("unable to allocate value")
 	}
@@ -576,7 +637,7 @@ func (v *Object) SetProperty(name string, value interface{}) error {
 
 	p, err := GValue(value)
 	if err != nil {
-		return errors.New("Unable to perform type conversion")
+		return errors.New("Unable to perform type conversion: " + err.Error())
 	}
 	C.g_object_set_property(v.GObject, (*C.gchar)(cstr), p.native())
 	return nil
