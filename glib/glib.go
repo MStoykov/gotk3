@@ -450,6 +450,7 @@ func (v *ObjectClass) FindProperty(name string) *ParamSpec {
 	if c == nil {
 		return nil
 	}
+
 	return &ParamSpec{c}
 }
 
@@ -457,17 +458,15 @@ func (v *ObjectClass) FindProperty(name string) *ParamSpec {
 func (v *ObjectClass) ListProperties() []*ParamSpec {
 	var nParams uint
 	list := C.g_object_class_list_properties(v.native(), (*C.guint)(unsafe.Pointer(&nParams)))
-	var length int = int(nParams)
-	paramSpecs := make ([]*ParamSpec,0,  length)
-	for i := 0; i < length; i++ {
-		fmt.Println(i)
-		c := C._g_get_nth_param_spec((**C.GParamSpec)(list),C.int(i))
-		c = C.g_param_spec_ref_sink(c)
-		fmt.Println(c)
+	defer C.free(unsafe.Pointer(list))
+
+	paramSpecs := make([]*ParamSpec, 0, nParams)
+	var i uint = 0
+	for ; i < nParams; i++ {
+		c := C._g_get_nth_param_spec((**C.GParamSpec)(list), C.uint(i))
 		paramSpecs = append(paramSpecs, &ParamSpec{c})
 	}
 	return paramSpecs
-
 }
 
 // ParamSpec is representation of GLib's GParamSpec
@@ -493,6 +492,16 @@ func (v *ParamSpec) GetType() Type {
 // GetName returns the Name for this Parameter
 func (v *ParamSpec) GetName() string {
 	return C.GoString((*C.char)(v.native().name))
+}
+
+// Ref is a wrapper around g_param_spec_ref
+func (v *ParamSpec) Ref() {
+	C.g_param_spec_ref(v.native())
+}
+
+// Unref is a wrapper around g_param_spec_unref
+func (v *ParamSpec) Unref() {
+	C.g_param_spec_unref(v.native())
 }
 
 // Object is a representation of GLib's GObject.

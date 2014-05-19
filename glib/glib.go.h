@@ -127,7 +127,7 @@ _g_closure_add_finalize_notifier(GClosure *closure)
  */
 
 static GParamSpec *
-_g_get_nth_param_spec(GParamSpec **specs, int index)
+_g_get_nth_param_spec(GParamSpec **specs, uint index)
 {
 	return specs[index];
 }
